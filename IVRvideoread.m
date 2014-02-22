@@ -10,7 +10,7 @@ figure(1); h1 = imshow(frame);
 % Read one frame at a time.
 for k = 1 : size(filenames,1)
     disp([file_dir filenames(k).name]);
-    frame = imread([file_dir filenames(k).name]);
+    frame = RGBNormalize(imread([file_dir filenames(k).name]));
     set(h1, 'CData', frame);
     drawnow('expose');
 %     disp(['showing frame ' num2str(k)]);
