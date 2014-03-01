@@ -40,8 +40,8 @@ function obj = setupSystemObjects()
 
         % Create two video players, one to display the video,
         % and one to display the foreground mask.
-        obj.videoPlayer = vision.VideoPlayer('Position', [20, 400, 700, 400]);
-        obj.maskPlayer = vision.VideoPlayer('Position', [740, 400, 700, 400]);
+        obj.videoPlayer = vision.VideoPlayer('Position', [20, 400, 700, 520]);
+        obj.maskPlayer = vision.VideoPlayer('Position', [740, 400, 700, 520]);
 
         % Create system objects for foreground detection and blob analysis
 
@@ -50,8 +50,9 @@ function obj = setupSystemObjects()
         % of 1 corresponds to the foreground and the value of 0 corresponds
         % to the background.
 
-        obj.detector = vision.ForegroundDetector('NumGaussians', 3, ...
-            'NumTrainingFrames', 40, 'MinimumBackgroundRatio', 0.7);
+        obj.detector = vision.ForegroundDetector('NumGaussians', 2, ...
+            'NumTrainingFrames', 25, 'MinimumBackgroundRatio', 0.8, ...
+            'InitialVariance', 25*25, 'AdaptLearningRate', true, 'LearningRate', 0.0001);
 
         % Connected groups of foreground pixels are likely to correspond to moving
         % objects.  The blob analysis system object is used to find such groups
@@ -60,7 +61,7 @@ function obj = setupSystemObjects()
 
         obj.blobAnalyser = vision.BlobAnalysis('BoundingBoxOutputPort', true, ...
             'AreaOutputPort', true, 'CentroidOutputPort', true, ...
-            'MinimumBlobArea', 400);
+            'MinimumBlobArea', 200);
     end
 
 function tracks = initializeTracks()
@@ -80,9 +81,14 @@ function [centroids, bboxes, mask] = detectObjects(frame)
         mask = obj.detector.step(frame);
 
         % Apply morphological operations to remove noise and fill in holes.
-        mask = imopen(mask, strel('rectangle', [3,3]));
-        mask = imclose(mask, strel('rectangle', [15, 15]));
-        mask = imfill(mask, 'holes');
+
+        % mask = imopen(mask, strel('rectangle', [3,3]));
+        % mask = imclose(mask, strel('rectangle', [15, 15]));
+
+        % mask = imopen(mask, strel('octagon', 3));
+        % mask = imclose(mask, strel('octagon', 9));
+
+        % mask = imfill(mask, 'holes');
 
         % Perform blob analysis to find connected components.
         [~, centroids, bboxes] = obj.blobAnalyser.step(mask);
