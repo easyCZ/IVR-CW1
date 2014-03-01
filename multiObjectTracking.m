@@ -21,6 +21,26 @@ frame = imread([file_dir filenames(1).name]);
 for k = 1 : size (filenames, 1)
     frame = imread([file_dir filenames(k).name]);
     [centroids, bboxes, mask] = detectObjects(frame);
+    
+    % get the x and y coordinate of the center
+    
+    if centroids
+        x = centroids(1);
+        y = centroids(2);
+        disp(x);
+    else
+        x = -1;
+        y = -1;
+    end
+    
+    if bboxes
+       top = uint32(bboxes(1) + bboxes(3) / 2);
+    else
+        top = -1;
+    end
+    
+    
+    % pause(0.5);
     predictNewLocationsOfTracks();
     [assignments, unassignedTracks, unassignedDetections] = ...
         detectionToTrackAssignment();
@@ -33,7 +53,7 @@ for k = 1 : size (filenames, 1)
     displayTrackingResults();
 end
 
-function obj = setupSystemObjects()
+    function obj = setupSystemObjects()
         % Initialize Video I/O
         % Create objects for reading a video from a file, drawing the tracked
         % objects in each frame, and playing the video.
@@ -91,7 +111,7 @@ function [centroids, bboxes, mask] = detectObjects(frame)
         % mask = imfill(mask, 'holes');
 
         % Perform blob analysis to find connected components.
-        [~, centroids, bboxes] = obj.blobAnalyser.step(mask);
+        [area, centroids, bboxes] = obj.blobAnalyser.step(mask);
     end
 
 function predictNewLocationsOfTracks()
@@ -253,6 +273,10 @@ function displayTrackingResults()
                 % Draw the objects on the mask.
                 mask = insertObjectAnnotation(mask, 'rectangle', ...
                     bboxes, labels);
+                
+                if x ~= -1
+                    frame = insertMarker(frame, [x, y]);
+                end
             end
         end
 
