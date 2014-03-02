@@ -15,9 +15,6 @@ function multiObjectTracking()
 
     stopPausing = false;
 
-    % JAVA STACK!!!
-    ballStack = java.util.Stack();
-
     % Create system objects used for reading video, detecting moving objects,
     % and displaying the results.
     obj = setupSystemObjects();
@@ -26,7 +23,7 @@ function multiObjectTracking()
 
     nextId = 1; % ID of the next track
 
-    file_dir = 'GOPR0002/'; %put here one of the folder locations with images;
+    file_dir = 'GOPR0004/'; %put here one of the folder locations with images;
     filenames = dir([file_dir '*.jpg']);
 
     frame = imread([file_dir filenames(1).name]);
@@ -34,7 +31,10 @@ function multiObjectTracking()
     % Detect moving objects, and track them across video frames.
     for k = 1 : size (filenames, 1)
         frame = imread([file_dir filenames(k).name]);
-        [centroids, bboxes, mask] = detectObjects(frame);
+        [centroids, bboxes, mask, majora, minora, eccentricities, perimeters] = detectObjects(frame);
+
+        % ball = isBall(eccentricities(1), perimeters(1), bboxes(1,:), majora(1,:), minora(1,:));
+        % ballStack.push(ball);
 
         predictNewLocationsOfTracks();
         [assignments, unassignedTracks, unassignedDetections] = ...
@@ -92,10 +92,11 @@ function multiObjectTracking()
             'kalmanFilter', {}, ...
             'age', {}, ...
             'totalVisibleCount', {}, ...
-            'consecutiveInvisibleCount', {});
+            'consecutiveInvisibleCount', {}, ...
+            'stack', java.util.Stack());
     end
 
-    function [centroids, bboxes, mask] = detectObjects(frame)
+    function [centroids, bboxes, mask, majora, minora, eccentricities, perimeters] = detectObjects(frame)
 
         % Detect foreground.
         mask = obj.detector.step(frame);
@@ -113,8 +114,8 @@ function multiObjectTracking()
         % Perform blob analysis to find connected components.
         [area, centroids, bboxes, majora, minora, eccentricities, perimeters] = obj.blobAnalyser.step(mask);
         if centroids
-            ball = isBall(eccentricities(1), perimeters(1), bboxes(1,:), majora(1,:), minora(1,:));
-            ballStack.push(ball);
+            % ball = isBall(eccentricities(1), perimeters(1), bboxes(1,:), majora(1,:), minora(1,:));
+            % ballStack.push(ball);
         end
 
     end
@@ -227,7 +228,8 @@ function multiObjectTracking()
                 'kalmanFilter', kalmanFilter, ...
                 'age', 1, ...
                 'totalVisibleCount', 1, ...
-                'consecutiveInvisibleCount', 0);
+                'consecutiveInvisibleCount', 0, ...
+                'stack', java.util.Stack());
 
             % Add it to the array of tracks.
             tracks(end + 1) = newTrack;
@@ -286,7 +288,7 @@ function multiObjectTracking()
                 max.x = -1;
                 max.y = 999999;
                 stopPausing = false;
-                ballStack = java.util.Stack();
+                % ballStack = java.util.Stack();
             end
 
 
@@ -298,9 +300,9 @@ function multiObjectTracking()
 
         if shouldPause && ~stopPausing
             stopPausing = true;
-            if getBallProbability() > 0.8
+            % if getBallProbability() > 0.8
                 pause(3);
-            end
+            % end
         end
     end
 
