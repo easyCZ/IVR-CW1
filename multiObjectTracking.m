@@ -27,7 +27,7 @@ for k = 1 : size (filenames, 1)
     if centroids
         x = centroids(1);
         y = centroids(2);
-        disp(x);
+        % disp(x);
     else
         x = -1;
         y = -1;
@@ -81,6 +81,8 @@ end
 
         obj.blobAnalyser = vision.BlobAnalysis('BoundingBoxOutputPort', true, ...
             'AreaOutputPort', true, 'CentroidOutputPort', true, ...
+            'MajorAxisLengthOutputPort', true, 'MinorAxisLengthOutputPort', true, ...
+            'EccentricityOutputPort', true, 'PerimeterOutputPort', true, ...
             'MinimumBlobArea', 200);
     end
 
@@ -111,7 +113,11 @@ function [centroids, bboxes, mask] = detectObjects(frame)
         % mask = imfill(mask, 'holes');
 
         % Perform blob analysis to find connected components.
-        [area, centroids, bboxes] = obj.blobAnalyser.step(mask);
+        [area, centroids, bboxes, majora, minora, eccentricities, perimeters] = obj.blobAnalyser.step(mask);
+        if centroids
+            ball = isBall(eccentricities(1), perimeters(1), bboxes(1,:), majora(1,:), minora(1,:));
+        end
+        
     end
 
 function predictNewLocationsOfTracks()
@@ -283,6 +289,31 @@ function displayTrackingResults()
         % Display the mask and the frame.
         obj.maskPlayer.step(mask);
         obj.videoPlayer.step(frame);
+    end
+
+function ball = isBall(eccentricity, perimeter, bbox, major, minor)
+    
+    % disp([eccentricity, perimeter]);
+    if eccentricity < 0.8
+        estimatedRadius = (major + minor)/2;
+        estimatedPerimeter = pi * estimatedRadius;
+        
+        ratio = perimeter/estimatedPerimeter;
+        if ratio <1.2
+            ball = true;
+        else
+            ball = false;
+        end
+    else
+        ball = false;
+    end
+
+    if ball == false
+        disp('###NOT A BALL###')
+    else
+        disp('ball')
+    end
+
     end
 
 end
