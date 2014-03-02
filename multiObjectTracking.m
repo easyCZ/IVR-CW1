@@ -1,57 +1,46 @@
 function multiObjectTracking()
 
-% Needs to be there in order to avoid some Matlab bug.
-ones(10)*ones(10);
+    % Needs to be there in order to avoid some Matlab bug.
+    ones(10)*ones(10);
 
-% Create system objects used for reading video, detecting moving objects,
-% and displaying the results.
-obj = setupSystemObjects();
+    % Set up max
+    max.x = -1;
+    max.y = 999999;
 
-tracks = initializeTracks(); % Create an empty array of tracks.
+    lastFrame.x = -1;
+    lastFrame.y = -1;
 
-nextId = 1; % ID of the next track
+    stopPausing = false;
 
-file_dir = 'GOPR0002/'; %put here one of the folder locations with images;
-filenames = dir([file_dir '*.jpg']);
+    % Create system objects used for reading video, detecting moving objects,
+    % and displaying the results.
+    obj = setupSystemObjects();
 
-frame = imread([file_dir filenames(1).name]);
+    tracks = initializeTracks(); % Create an empty array of tracks.
 
-% Detect moving objects, and track them across video frames.
-% while ~isDone(obj.reader)
-for k = 1 : size (filenames, 1)
-    frame = imread([file_dir filenames(k).name]);
-    [centroids, bboxes, mask] = detectObjects(frame);
-    
-    % get the x and y coordinate of the center
-    
-    if centroids
-        x = centroids(1);
-        y = centroids(2);
-        % disp(x);
-    else
-        x = -1;
-        y = -1;
+    nextId = 1; % ID of the next track
+
+    file_dir = 'GOPR0002/'; %put here one of the folder locations with images;
+    filenames = dir([file_dir '*.jpg']);
+
+    frame = imread([file_dir filenames(1).name]);
+
+    % Detect moving objects, and track them across video frames.
+    for k = 1 : size (filenames, 1)
+        frame = imread([file_dir filenames(k).name]);
+        [centroids, bboxes, mask] = detectObjects(frame);
+
+        predictNewLocationsOfTracks();
+        [assignments, unassignedTracks, unassignedDetections] = ...
+            detectionToTrackAssignment();
+
+        updateAssignedTracks();
+        updateUnassignedTracks();
+        deleteLostTracks();
+        createNewTracks();
+
+        displayTrackingResults();
     end
-    
-    if bboxes
-       top = uint32(bboxes(1) + bboxes(3) / 2);
-    else
-        top = -1;
-    end
-    
-    
-    % pause(0.5);
-    predictNewLocationsOfTracks();
-    [assignments, unassignedTracks, unassignedDetections] = ...
-        detectionToTrackAssignment();
-
-    updateAssignedTracks();
-    updateUnassignedTracks();
-    deleteLostTracks();
-    createNewTracks();
-
-    displayTrackingResults();
-end
 
     function obj = setupSystemObjects()
         % Initialize Video I/O
@@ -84,9 +73,12 @@ end
             'MajorAxisLengthOutputPort', true, 'MinorAxisLengthOutputPort', true, ...
             'EccentricityOutputPort', true, 'PerimeterOutputPort', true, ...
             'MinimumBlobArea', 200);
+
+
+
     end
 
-function tracks = initializeTracks()
+    function tracks = initializeTracks()
         % create an empty array of tracks
         tracks = struct(...
             'id', {}, ...
@@ -97,7 +89,7 @@ function tracks = initializeTracks()
             'consecutiveInvisibleCount', {});
     end
 
-function [centroids, bboxes, mask] = detectObjects(frame)
+    function [centroids, bboxes, mask] = detectObjects(frame)
 
         % Detect foreground.
         mask = obj.detector.step(frame);
@@ -120,7 +112,7 @@ function [centroids, bboxes, mask] = detectObjects(frame)
         
     end
 
-function predictNewLocationsOfTracks()
+    function predictNewLocationsOfTracks()
         for i = 1:length(tracks)
             bbox = tracks(i).bbox;
 
@@ -134,7 +126,7 @@ function predictNewLocationsOfTracks()
         end
     end
 
-function [assignments, unassignedTracks, unassignedDetections] = ...
+    function [assignments, unassignedTracks, unassignedDetections] = ...
             detectionToTrackAssignment()
 
         nTracks = length(tracks);
@@ -152,7 +144,7 @@ function [assignments, unassignedTracks, unassignedDetections] = ...
             assignDetectionsToTracks(cost, costOfNonAssignment);
     end
 
-function updateAssignedTracks()
+    function updateAssignedTracks()
         numAssignedTracks = size(assignments, 1);
         for i = 1:numAssignedTracks
             trackIdx = assignments(i, 1);
@@ -178,7 +170,7 @@ function updateAssignedTracks()
         end
     end
 
-function updateUnassignedTracks()
+    function updateUnassignedTracks()
         for i = 1:length(unassignedTracks)
             ind = unassignedTracks(i);
             tracks(ind).age = tracks(ind).age + 1;
@@ -187,7 +179,7 @@ function updateUnassignedTracks()
         end
     end
 
-function deleteLostTracks()
+    function deleteLostTracks()
         if isempty(tracks)
             return;
         end
@@ -208,7 +200,7 @@ function deleteLostTracks()
         tracks = tracks(~lostInds);
     end
 
-function createNewTracks()
+    function createNewTracks()
         centroids = centroids(unassignedDetections, :);
         bboxes = bboxes(unassignedDetections, :);
 
@@ -238,12 +230,13 @@ function createNewTracks()
         end
     end
 
-function displayTrackingResults()
+    function displayTrackingResults()
         % Convert the frame and the mask to uint8 RGB.
         frame = im2uint8(frame);
         mask = uint8(repmat(mask, [1, 1, 3])) .* 255;
 
         minVisibleCount = 8;
+        shouldPause = false;
         if ~isempty(tracks)
 
             % Noisy detections tend to result in short-lived tracks.
@@ -256,6 +249,7 @@ function displayTrackingResults()
             % Display the objects. If an object has not been detected
             % in this frame, display its predicted bounding box.
             if ~isempty(reliableTracks)
+                disp(reliableTracks);
                 % Get bounding boxes.
                 bboxes = cat(1, reliableTracks.bbox);
 
@@ -279,16 +273,63 @@ function displayTrackingResults()
                 % Draw the objects on the mask.
                 mask = insertObjectAnnotation(mask, 'rectangle', ...
                     bboxes, labels);
-                
-                if x ~= -1
-                    frame = insertMarker(frame, [x, y]);
-                end
+
+                shouldPause = drawMaxLocation(reliableTracks);
+            else
+                max.x = -1;
+                max.y = 999999;
+                stopPausing = false;
             end
+
+
         end
 
         % Display the mask and the frame.
         obj.maskPlayer.step(mask);
         obj.videoPlayer.step(frame);
+
+        if shouldPause && ~stopPausing
+            pause(3);
+            stopPausing = true;
+        end
+    end
+
+    % Draw the maximum location so far for an object
+    function shouldPause = drawMaxLocation(reliableTracks)
+
+        % boundingBox = [x, y, width, height]
+        boundingBox = reliableTracks.bbox;
+        x = boundingBox(1) + floor(boundingBox(3) / 2);
+        y = boundingBox(2);
+
+        if lastFrame.y < 999999 && lastFrame.y ~= -1
+            deltaY = lastFrame.y - y;
+        else
+            deltaY = 1;
+        end
+
+        % Re-assign values if current max
+        if y < max.y
+            max.x = x;
+            max.y = y;
+        end
+        % Draw only for positive values
+        if max.x > 0 && max.y < 999999
+            text = strcat('x:', int2str(max.x), ' y:', int2str(max.y));
+            frame = insertMarker(frame, [max.x, max.y], 'Size', 15);
+            frame = insertText(frame, [max.x + 1, max.y - 23], text, 'FontSize', 13, 'BoxColor', 'red', 'BoxOpacity', 0.4);
+        end
+
+        shouldPause = false;
+        if deltaY < 0
+            shouldPause = true;
+            disp(lastFrame.y);
+            disp(y);
+        end
+
+        % Update last frame cache
+        lastFrame.x = x;
+        lastFrame.y = y;
     end
 
 function ball = isBall(eccentricity, perimeter, bbox, major, minor)
