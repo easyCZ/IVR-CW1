@@ -1,5 +1,8 @@
 function multiObjectTracking()
 
+
+    import java.util.Stack;
+
     % Needs to be there in order to avoid some Matlab bug.
     ones(10)*ones(10);
 
@@ -11,6 +14,9 @@ function multiObjectTracking()
     lastFrame.y = -1;
 
     stopPausing = false;
+
+    % JAVA STACK!!!
+    ballStack = java.util.Stack();
 
     % Create system objects used for reading video, detecting moving objects,
     % and displaying the results.
@@ -108,8 +114,9 @@ function multiObjectTracking()
         [area, centroids, bboxes, majora, minora, eccentricities, perimeters] = obj.blobAnalyser.step(mask);
         if centroids
             ball = isBall(eccentricities(1), perimeters(1), bboxes(1,:), majora(1,:), minora(1,:));
+            ballStack.push(ball);
         end
-        
+
     end
 
     function predictNewLocationsOfTracks()
@@ -249,7 +256,7 @@ function multiObjectTracking()
             % Display the objects. If an object has not been detected
             % in this frame, display its predicted bounding box.
             if ~isempty(reliableTracks)
-                disp(reliableTracks);
+                % disp(reliableTracks);
                 % Get bounding boxes.
                 bboxes = cat(1, reliableTracks.bbox);
 
@@ -279,6 +286,7 @@ function multiObjectTracking()
                 max.x = -1;
                 max.y = 999999;
                 stopPausing = false;
+                ballStack = java.util.Stack();
             end
 
 
@@ -289,9 +297,35 @@ function multiObjectTracking()
         obj.videoPlayer.step(frame);
 
         if shouldPause && ~stopPausing
-            pause(3);
             stopPausing = true;
+            if getBallProbability() > 0.8
+                pause(3);
+            end
         end
+    end
+
+    function prob = getBallProbability()
+        % Calculate the probability that the image has balls. Yay!
+
+        stackSize = ballStack.size();
+
+        disp(ballStack);
+
+        count = 0;
+
+        while ~ballStack.isEmpty()
+            val = ballStack.pop();
+            if val
+                count = count + 1;
+            end
+        end
+
+        prob = count / stackSize;
+
+        if stackSize < 8
+            prob = 0;
+        end
+        disp(prob);
     end
 
     % Draw the maximum location so far for an object
@@ -323,8 +357,6 @@ function multiObjectTracking()
         shouldPause = false;
         if deltaY < 0
             shouldPause = true;
-            disp(lastFrame.y);
-            disp(y);
         end
 
         % Update last frame cache
@@ -332,28 +364,22 @@ function multiObjectTracking()
         lastFrame.y = y;
     end
 
-function ball = isBall(eccentricity, perimeter, bbox, major, minor)
-    
-    % disp([eccentricity, perimeter]);
-    if eccentricity < 0.8
-        estimatedRadius = (major + minor)/2;
-        estimatedPerimeter = pi * estimatedRadius;
-        
-        ratio = perimeter/estimatedPerimeter;
-        if ratio <1.2
-            ball = true;
+    function ball = isBall(eccentricity, perimeter, bbox, major, minor)
+
+        % disp([eccentricity, perimeter]);
+        if eccentricity < 0.8
+            estimatedRadius = (major + minor)/2;
+            estimatedPerimeter = pi * estimatedRadius;
+
+            ratio = perimeter/estimatedPerimeter;
+            if ratio <1.2
+                ball = true;
+            else
+                ball = false;
+            end
         else
             ball = false;
         end
-    else
-        ball = false;
-    end
-
-    if ball == false
-        disp('###NOT A BALL###')
-    else
-        disp('ball')
-    end
 
     end
 
