@@ -12,7 +12,7 @@ function multiObjectTracking()
 
     nextId = 1; % ID of the next track
 
-    file_dir = 'GOPR0004/'; %put here one of the folder locations with images;
+    file_dir = 'GOPR0008/'; %put here one of the folder locations with images;
     filenames = dir([file_dir '*.jpg']);
 
     frame = imread([file_dir filenames(1).name]);
@@ -205,7 +205,7 @@ function multiObjectTracking()
 
             tracks(trackIdx).should_pause = false;
             if deltaY < 0 && ~paused.contains(trackIdx)
-                if getBallProbability(tracks(trackIdx).stack) > 0.9
+                if getBallProbability(tracks(trackIdx).stack) > 0.8
                 tracks(trackIdx).should_pause = true;
                 end
             end
