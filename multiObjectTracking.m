@@ -185,10 +185,6 @@ function multiObjectTracking()
                 frame = insertText(frame, [tracks(trackIdx).max_x + 1, tracks(trackIdx).max_y - 23], text, 'FontSize', 13, 'BoxColor', 'red', 'BoxOpacity', 0.4);
             end
 
-
-            % disp(trackIdx);
-            % disp(paused)
-
             % Update last frame cache
             tracks(trackIdx).last_x = x;
             tracks(trackIdx).last_y = y;
@@ -226,16 +222,13 @@ function multiObjectTracking()
             return;
         end
 
-        invisibleForTooLong = 10;
+        invisibleForTooLong = 4;
         ageThreshold = 8;
 
         % Compute the fraction of the track's age for which it was visible.
         ages = [tracks(:).age];
         totalVisibleCounts = [tracks(:).totalVisibleCount];
         visibility = totalVisibleCounts ./ ages;
-
-        disp(visibility);
-        disp(ages);
 
         % Find the indices of 'lost' tracks.
         lostInds = (ages < ageThreshold & visibility < 0.6) | ...
@@ -301,9 +294,6 @@ function multiObjectTracking()
             % in this frame, display its predicted bounding box.
             if ~isempty(reliableTracks)
 
-
-
-                % disp(reliableTracks);
                 % Get bounding boxes.
                 bboxes = cat(1, reliableTracks.bbox);
 
@@ -356,8 +346,6 @@ function multiObjectTracking()
 
         stackSize = ballStack.size();
 
-        disp(ballStack);
-
         count = 0;
 
         while ~ballStack.isEmpty()
@@ -377,7 +365,7 @@ function multiObjectTracking()
     function balls = isBall(eccentricities, perimeters, bboxes, majors, minors)
 
         balls = java.util.ArrayList()
-        % disp([eccentricity, perimeter]);
+
         for i = 1 : size(eccentricities)
             if eccentricities(i) < 0.8
                 estimatedRadius = (majors(i) + minors(i))/2;
