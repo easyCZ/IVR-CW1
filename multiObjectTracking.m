@@ -22,8 +22,6 @@ function multiObjectTracking()
         frame = imread([file_dir filenames(k).name]);
         [centroids, bboxes, mask, majora, minora, eccentricities, perimeters] = detectObjects(frame);
 
-        % ball = isBall(eccentricities(1), perimeters(1), bboxes(1,:), majora(1,:), minora(1,:));
-        % ballStack.push(ball);
 
         predictNewLocationsOfTracks();
         [assignments, unassignedTracks, unassignedDetections] = ...
@@ -110,11 +108,6 @@ function multiObjectTracking()
 
         % Perform blob analysis to find connected components.
         [area, centroids, bboxes, majora, minora, eccentricities, perimeters] = obj.blobAnalyser.step(mask);
-        if centroids
-            % ball = isBall(eccentricities(1), perimeters(1), bboxes(1,:), majora(1,:), minora(1,:));
-            % ballStack.push(ball);
-        end
-
     end
 
     function predictNewLocationsOfTracks()
@@ -151,6 +144,8 @@ function multiObjectTracking()
 
     function updateAssignedTracks()
         numAssignedTracks = size(assignments, 1);
+        balls = isBall(eccentricities, perimeters, bboxes, majora, minora);
+
         for i = 1:numAssignedTracks
             trackIdx = assignments(i, 1);
             detectionIdx = assignments(i, 2);
@@ -209,6 +204,9 @@ function multiObjectTracking()
             tracks(trackIdx).totalVisibleCount = ...
                 tracks(trackIdx).totalVisibleCount + 1;
             tracks(trackIdx).consecutiveInvisibleCount = 0;
+
+            tracks(trackIdx).stack.push(balls.get(i - 1));
+            disp(tracks(trackIdx).stack);
         end
     end
 
@@ -358,7 +356,7 @@ function multiObjectTracking()
 
         disp(ballStack);
 
-        count = 0;`
+        count = 0;
 
         while ~ballStack.isEmpty()
             val = ballStack.pop();
@@ -374,23 +372,21 @@ function multiObjectTracking()
         end
     end
 
-    function ball = isBall(eccentricity, perimeter, bbox, major, minor)
+    function balls = isBall(eccentricities, perimeters, bboxes, majors, minors)
 
+        balls = java.util.ArrayList()
         % disp([eccentricity, perimeter]);
-        if eccentricity < 0.8
-            estimatedRadius = (major + minor)/2;
-            estimatedPerimeter = pi * estimatedRadius;
+        for i = 1 : size(eccentricities)
+            if eccentricities(i) < 0.8
+                estimatedRadius = (majors(i) + minors(i))/2;
+                estimatedPerimeter = pi * estimatedRadius;
 
-            ratio = perimeter/estimatedPerimeter;
-            if ratio <1.2
-                ball = true;
+                ratio = perimeters(i)/estimatedPerimeter;
+                balls.add(ratio <1.2);
             else
-                ball = false;
+                balls.add(false);
             end
-        else
-            ball = false;
         end
-
     end
 
 end
