@@ -185,10 +185,6 @@ function multiObjectTracking()
                 frame = insertText(frame, [tracks(trackIdx).max_x + 1, tracks(trackIdx).max_y - 23], text, 'FontSize', 13, 'BoxColor', 'red', 'BoxOpacity', 0.4);
             end
 
-            tracks(trackIdx).should_pause = false;
-            if deltaY < 0 && ~paused.contains(trackIdx)
-                tracks(trackIdx).should_pause = true;
-            end
 
             % disp(trackIdx);
             % disp(paused)
@@ -206,7 +202,13 @@ function multiObjectTracking()
             tracks(trackIdx).consecutiveInvisibleCount = 0;
 
             tracks(trackIdx).stack.push(balls.get(i - 1));
-            disp(tracks(trackIdx).stack);
+
+            tracks(trackIdx).should_pause = false;
+            if deltaY < 0 && ~paused.contains(trackIdx)
+                if getBallProbability(tracks(trackIdx).stack) > 0.9
+                tracks(trackIdx).should_pause = true;
+                end
+            end
         end
     end
 
