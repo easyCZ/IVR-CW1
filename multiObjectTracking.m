@@ -1,20 +1,9 @@
 function multiObjectTracking()
 
-
-    import java.util.Stack;
-
     % Needs to be there in order to avoid some Matlab bug.
     ones(10)*ones(10);
 
-    % Set up max
-    max.x = -1;
-    max.y = 999999;
-
-    lastFrame.x = -1;
-    lastFrame.y = -1;
-
-    stopPausing = false;
-
+    paused = java.util.ArrayList();
     % Create system objects used for reading video, detecting moving objects,
     % and displaying the results.
     obj = setupSystemObjects();
@@ -93,7 +82,15 @@ function multiObjectTracking()
             'age', {}, ...
             'totalVisibleCount', {}, ...
             'consecutiveInvisibleCount', {}, ...
-            'stack', java.util.Stack());
+            'stack', {}, ...
+            'max_x', {}, ...
+            'max_y', {}, ...
+            'last_x', {}, ...
+            'last_y', {}, ...
+            'should_pause', {}, ...
+            'stop_pausing', {})
+
+
     end
 
     function [centroids, bboxes, mask, majora, minora, eccentricities, perimeters] = detectObjects(frame)
@@ -171,6 +168,43 @@ function multiObjectTracking()
             % Update track's age.
             tracks(trackIdx).age = tracks(trackIdx).age + 1;
 
+            % Update track stats
+            x = bbox(1) + floor(bbox(3) / 2);
+            y = bbox(2);
+
+            if tracks(trackIdx).last_y ~= Inf && tracks(trackIdx).last_y ~= -1
+                deltaY = tracks(trackIdx).last_y - y;
+            else
+                deltaY = 1;
+            end
+
+            % Re-assign values if current max
+            if y < tracks(trackIdx).max_y
+                tracks(trackIdx).max_x = x;
+                tracks(trackIdx).max_y = y;
+            end
+            % Draw only for positive values
+            if tracks(trackIdx).max_y > 0 && tracks(trackIdx).max_y < Inf
+                text = strcat('x:', int2str(tracks(trackIdx).max_x), ' y:', int2str(tracks(trackIdx).max_y));
+                frame = insertMarker(frame, [tracks(trackIdx).max_x, tracks(trackIdx).max_y], 'Size', 15);
+                frame = insertText(frame, [tracks(trackIdx).max_x + 1, tracks(trackIdx).max_y - 23], text, 'FontSize', 13, 'BoxColor', 'red', 'BoxOpacity', 0.4);
+            end
+
+            tracks(trackIdx).should_pause = false;
+            if deltaY < 0 && ~paused.contains(trackIdx)
+                tracks(trackIdx).should_pause = true;
+            end
+
+            % disp(trackIdx);
+            % disp(paused)
+
+            % Update last frame cache
+            tracks(trackIdx).last_x = x;
+            tracks(trackIdx).last_y = y;
+
+            % tracks(trackIdx).max_x = tracks(trackIdx).max_x;
+            % tracks(trackIdx).max_y = tracks(trackIdx).max_y;
+
             % Update visibility.
             tracks(trackIdx).totalVisibleCount = ...
                 tracks(trackIdx).totalVisibleCount + 1;
@@ -199,6 +233,9 @@ function multiObjectTracking()
         ages = [tracks(:).age];
         totalVisibleCounts = [tracks(:).totalVisibleCount];
         visibility = totalVisibleCounts ./ ages;
+
+        disp(visibility);
+        disp(ages);
 
         % Find the indices of 'lost' tracks.
         lostInds = (ages < ageThreshold & visibility < 0.6) | ...
@@ -229,7 +266,13 @@ function multiObjectTracking()
                 'age', 1, ...
                 'totalVisibleCount', 1, ...
                 'consecutiveInvisibleCount', 0, ...
-                'stack', java.util.Stack());
+                'stack', java.util.Stack(), ...
+                'max_x', -1, ...
+                'max_y', Inf, ...
+                'last_x', -1, ...
+                'last_y', Inf, ...
+                'should_pause', false, ...
+                'stop_pausing', false);
 
             % Add it to the array of tracks.
             tracks(end + 1) = newTrack;
@@ -245,7 +288,6 @@ function multiObjectTracking()
         mask = uint8(repmat(mask, [1, 1, 3])) .* 255;
 
         minVisibleCount = 8;
-        shouldPause = false;
         if ~isempty(tracks)
 
             % Noisy detections tend to result in short-lived tracks.
@@ -258,6 +300,9 @@ function multiObjectTracking()
             % Display the objects. If an object has not been detected
             % in this frame, display its predicted bounding box.
             if ~isempty(reliableTracks)
+
+
+
                 % disp(reliableTracks);
                 % Get bounding boxes.
                 bboxes = cat(1, reliableTracks.bbox);
@@ -283,10 +328,16 @@ function multiObjectTracking()
                 mask = insertObjectAnnotation(mask, 'rectangle', ...
                     bboxes, labels);
 
-                shouldPause = drawMaxLocation(reliableTracks);
+                for i = 1 : size(reliableTracks, 2)
+                    if reliableTracks(i).should_pause && ~paused.contains(reliableTracks(i).id)
+                        pause(3);
+                        paused.add(reliableTracks(i).id);
+                    end
+                end
+
+
+
             else
-                max.x = -1;
-                max.y = 999999;
                 stopPausing = false;
                 % ballStack = java.util.Stack();
             end
@@ -298,22 +349,16 @@ function multiObjectTracking()
         obj.maskPlayer.step(mask);
         obj.videoPlayer.step(frame);
 
-        if shouldPause && ~stopPausing
-            stopPausing = true;
-            % if getBallProbability() > 0.8
-                pause(3);
-            % end
-        end
     end
 
-    function prob = getBallProbability()
+    function prob = getBallProbability(ballStack)
         % Calculate the probability that the image has balls. Yay!
 
         stackSize = ballStack.size();
 
         disp(ballStack);
 
-        count = 0;
+        count = 0;`
 
         while ~ballStack.isEmpty()
             val = ballStack.pop();
@@ -327,43 +372,6 @@ function multiObjectTracking()
         if stackSize < 8
             prob = 0;
         end
-        disp(prob);
-    end
-
-    % Draw the maximum location so far for an object
-    function shouldPause = drawMaxLocation(reliableTracks)
-
-        % boundingBox = [x, y, width, height]
-        boundingBox = reliableTracks.bbox;
-        x = boundingBox(1) + floor(boundingBox(3) / 2);
-        y = boundingBox(2);
-
-        if lastFrame.y < 999999 && lastFrame.y ~= -1
-            deltaY = lastFrame.y - y;
-        else
-            deltaY = 1;
-        end
-
-        % Re-assign values if current max
-        if y < max.y
-            max.x = x;
-            max.y = y;
-        end
-        % Draw only for positive values
-        if max.x > 0 && max.y < 999999
-            text = strcat('x:', int2str(max.x), ' y:', int2str(max.y));
-            frame = insertMarker(frame, [max.x, max.y], 'Size', 15);
-            frame = insertText(frame, [max.x + 1, max.y - 23], text, 'FontSize', 13, 'BoxColor', 'red', 'BoxOpacity', 0.4);
-        end
-
-        shouldPause = false;
-        if deltaY < 0
-            shouldPause = true;
-        end
-
-        % Update last frame cache
-        lastFrame.x = x;
-        lastFrame.y = y;
     end
 
     function ball = isBall(eccentricity, perimeter, bbox, major, minor)
