@@ -43,7 +43,7 @@ function multiObjectTracking()
         % Create two video players, one to display the video,
         % and one to display the foreground mask.
         obj.videoPlayer = vision.VideoPlayer('Position', [20, 400, 700, 520]);
-%         obj.maskPlayer = vision.VideoPlayer('Position', [740, 400, 700, 520]);
+        obj.maskPlayer = vision.VideoPlayer('Position', [740, 400, 700, 520]);
 
         % Create system objects for foreground detection and blob analysis
 
@@ -87,8 +87,9 @@ function multiObjectTracking()
             'last_y', {}, ...
             'should_pause', {}, ...
             'stop_pausing', {}, ...
-            'track_xs', {}, ...
-            'track_ys', {});
+            'track', {})
+
+
     end
 
     function [centroids, bboxes, mask, majora, minora, eccentricities, perimeters] = detectObjects(frame)
@@ -205,13 +206,10 @@ function multiObjectTracking()
                 tracks(trackIdx).should_pause = true;
                 end
             end
-            tracks(trackIdx).track_xs.add(x);
-            tracks(trackIdx).track_ys.add(y);
-            
-            for i = 0 : tracks(trackIdx).track_ys.size() - 1 
-                marker_x = tracks(trackIdx).track_xs.get(i);
-                marker_y = tracks(trackIdx).track_ys.get(i);
-                frame = insertMarker(frame, [marker_x, marker_y], 'o', 'Size', 1);
+            tracks(trackIdx).track.add([x, y]);
+            for i = 0 : tracks(trackIdx).track.size()
+                marker_x = tracks(trackIdx).track.
+                frame = insertMarker(frame, [tracks(trackIdx).max_x, tracks(trackIdx).max_y], 'Size', 5);
             end
         end
     end
@@ -274,8 +272,7 @@ function multiObjectTracking()
                 'last_y', Inf, ...
                 'should_pause', false, ...
                 'stop_pausing', false, ...
-                'track_xs', java.util.ArrayList(), ...
-                'track_ys', java.util.ArrayList());
+                'track', java.util.ArrayList());
 
             % Add it to the array of tracks.
             tracks(end + 1) = newTrack;
@@ -325,8 +322,8 @@ function multiObjectTracking()
                     bboxes, labels);
 
                 % Draw the objects on the mask.
-%                 mask = insertObjectAnnotation(mask, 'rectangle', ...
-%                     bboxes, labels);
+                mask = insertObjectAnnotation(mask, 'rectangle', ...
+                    bboxes, labels);
 
                 for i = 1 : size(reliableTracks, 2)
                     if reliableTracks(i).should_pause && ~paused.contains(reliableTracks(i).id)
@@ -340,7 +337,7 @@ function multiObjectTracking()
         end
 
         % Display the mask and the frame.
-%         obj.maskPlayer.step(mask);
+        obj.maskPlayer.step(mask);
         obj.videoPlayer.step(frame);
 
     end
