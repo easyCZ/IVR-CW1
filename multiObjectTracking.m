@@ -12,7 +12,7 @@ function multiObjectTracking()
 
     nextId = 1; % ID of the next track
 
-    file_dir = 'GOPR0008/'; %put here one of the folder locations with images;
+    file_dir = 'GOPR0004/'; %put here one of the folder locations with images;
     filenames = dir([file_dir '*.jpg']);
 
     frame = imread([file_dir filenames(1).name]);
@@ -207,12 +207,22 @@ function multiObjectTracking()
             end
             tracks(trackIdx).track_xs.add(x);
             tracks(trackIdx).track_ys.add(y);
-            
-            for i = 0 : tracks(trackIdx).track_ys.size() - 1 
-                marker_x = tracks(trackIdx).track_xs.get(i);
-                marker_y = tracks(trackIdx).track_ys.get(i);
-                frame = insertMarker(frame, [marker_x, marker_y], 'o', 'Size', 1);
+
+            numTracks = tracks(trackIdx).track_ys.size();
+
+            points = zeros(numTracks, 2);
+
+            for i = 1 : tracks(trackIdx).track_ys.size()
+
+                points(i, 1) = tracks(trackIdx).track_xs.get(i-1);
+                points(i, 2) = tracks(trackIdx).track_ys.get(i-1);
+
+                % marker_x = tracks(trackIdx).track_xs.get(i);
+                % marker_y = tracks(trackIdx).track_ys.get(i);
+                % frame = insertMarker(frame, [marker_x, marker_y], 'o', 'Size', 1);
             end
+            frame = insertMarker(frame, points, 'o', 'Size', 1);
+            % disp(points);
         end
     end
 
