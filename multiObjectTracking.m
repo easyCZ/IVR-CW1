@@ -128,77 +128,78 @@ function multiObjectTracking()
         numAssignedTracks = size(assignments, 1);
         balls = isBall(eccentricities, perimeters, bboxes, majora, minora, areas);
 
-        for i = 1:numAssignedTracks
-            trackIdx = assignments(i, 1);
+        % Iterate over all the tracks we currently have assigned
+        for i = 1 : numAssignedTracks
+            idx = assignments(i, 1);
             detectionIdx = assignments(i, 2);
             centroid = centroids(detectionIdx, :);
             bbox = bboxes(detectionIdx, :);
 
             % Correct the estimate of the object's location
             % using the new detection.
-            correct(tracks(trackIdx).kalmanFilter, centroid);
+            correct(tracks(idx).kalmanFilter, centroid);
 
             % Replace predicted bounding box with detected
             % bounding box.
-            tracks(trackIdx).bbox = bbox;
+            tracks(idx).bbox = bbox;
 
             % Update track's age.
-            tracks(trackIdx).age = tracks(trackIdx).age + 1;
+            tracks(idx).age = tracks(idx).age + 1;
 
             % Update track stats
             x = bbox(1) + floor(bbox(3) / 2);
             y = bbox(2);
 
-            if tracks(trackIdx).last_y ~= Inf && tracks(trackIdx).last_y ~= -1
-                deltaY = tracks(trackIdx).last_y - y;
+            if tracks(idx).last_y ~= Inf && tracks(idx).last_y ~= -1
+                deltaY = tracks(idx).last_y - y;
             else
                 deltaY = 1;
             end
 
             % Re-assign values if current max
-            if y < tracks(trackIdx).max_y
-                tracks(trackIdx).max_x = x;
-                tracks(trackIdx).max_y = y;
+            if y < tracks(idx).max_y
+                tracks(idx).max_x = x;
+                tracks(idx).max_y = y;
             end
             % Draw only for positive values
-            if tracks(trackIdx).max_y > 0 && tracks(trackIdx).max_y < Inf
-                text = strcat('x:', int2str(tracks(trackIdx).max_x), ' y:', int2str(tracks(trackIdx).max_y));
-                frame = insertMarker(frame, [tracks(trackIdx).max_x, tracks(trackIdx).max_y], 'Size', 15);
-                frame = insertText(frame, [tracks(trackIdx).max_x + 1, tracks(trackIdx).max_y - 23], text, 'FontSize', 13, 'BoxColor', 'red', 'BoxOpacity', 0.4);
+            if tracks(idx).max_y > 0 && tracks(idx).max_y < Inf
+                text = strcat('x:', int2str(tracks(idx).max_x), ' y:', int2str(tracks(idx).max_y));
+                frame = insertMarker(frame, [tracks(idx).max_x, tracks(idx).max_y], 'Size', 15);
+                frame = insertText(frame, [tracks(idx).max_x + 1, tracks(idx).max_y - 23], text, 'FontSize', 13, 'BoxColor', 'red', 'BoxOpacity', 0.4);
             end
 
             % Update last frame cache
-            tracks(trackIdx).last_x = x;
-            tracks(trackIdx).last_y = y;
+            tracks(idx).last_x = x;
+            tracks(idx).last_y = y;
 
             % Update visibility.
-            tracks(trackIdx).totalVisibleCount = ...
-                tracks(trackIdx).totalVisibleCount + 1;
-            tracks(trackIdx).consecutiveInvisibleCount = 0;
+            tracks(idx).totalVisibleCount = ...
+                tracks(idx).totalVisibleCount + 1;
+            tracks(idx).consecutiveInvisibleCount = 0;
 
-            tracks(trackIdx).stack.add(balls.get(i - 1));
+            tracks(idx).stack.add(balls.get(i - 1));
 
             % Determine if we should be pausing for this object
-            tracks(trackIdx).should_pause = false;
-            if deltaY < 0 && ~paused.contains(trackIdx)
+            tracks(idx).should_pause = false;
+            if deltaY < 0 && ~paused.contains(idx)
                 % Only pause if the probabilty of being a ball given the past is past the threshold
-                if getBallProbability(tracks(trackIdx).stack) > ball_probability_threshold
-                    tracks(trackIdx).should_pause = true;
+                if getBallProbability(tracks(idx).stack) > ball_probability_threshold
+                    tracks(idx).should_pause = true;
                 end
             end
 
             % Add current location to the history of location
-            tracks(trackIdx).track_xs.add(x);
-            tracks(trackIdx).track_ys.add(y);
+            tracks(idx).track_xs.add(x);
+            tracks(idx).track_ys.add(y);
 
             % Check how many track points there are in the object
-            numTracks = tracks(trackIdx).track_ys.size();
+            numTracks = tracks(idx).track_ys.size();
             points = zeros(numTracks, 2);
 
             % Precompute a [numTracks x 2] matrix to draw markers
-            for i = 1 : tracks(trackIdx).track_ys.size()
-                points(i, 1) = tracks(trackIdx).track_xs.get(i-1);
-                points(i, 2) = tracks(trackIdx).track_ys.get(i-1);
+            for i = 1 : tracks(idx).track_ys.size()
+                points(i, 1) = tracks(idx).track_xs.get(i-1);
+                points(i, 2) = tracks(idx).track_ys.get(i-1);
             end
 
             % Draw points
@@ -344,7 +345,7 @@ function multiObjectTracking()
         frame = insertText(frame, [1, 1], strcat('Ball recognition probability threshold: ', ...
                            num2str(ball_probability_threshold)), 'FontSize', 13, ...
                           'BoxColor', 'yellow', 'BoxOpacity', 0.4);
-        
+
         % Display the mask and the frame.
         obj.maskPlayer.step(mask);
         obj.videoPlayer.step(frame);
