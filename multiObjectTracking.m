@@ -12,7 +12,7 @@ function multiObjectTracking()
 
     nextId = 1; % ID of the next track
 
-    file_dir = 'GOPR0004/'; %put here one of the folder locations with images;
+    file_dir = 'GOPR0008/'; %put here one of the folder locations with images;
     filenames = dir([file_dir '*.jpg']);
 
     frame = imread([file_dir filenames(1).name]);
@@ -43,7 +43,7 @@ function multiObjectTracking()
         % Create two video players, one to display the video,
         % and one to display the foreground mask.
         obj.videoPlayer = vision.VideoPlayer('Position', [20, 400, 700, 520]);
-        obj.maskPlayer = vision.VideoPlayer('Position', [740, 400, 700, 520]);
+        % obj.maskPlayer = vision.VideoPlayer('Position', [740, 400, 700, 520]);
 
         % Create system objects for foreground detection and blob analysis
 
@@ -356,24 +356,16 @@ function multiObjectTracking()
         end
 
         % Display the mask and the frame.
-        obj.maskPlayer.step(mask);
+        % obj.maskPlayer.step(mask);
         obj.videoPlayer.step(frame);
 
     end
 
     function prob = getBallProbability(ballStack)
         % Calculate the probability that the image has balls. Yay!
-
         stackSize = ballStack.size();
 
         count = 0;
-
-        % while ~ballStack.isEmpty()
-        %     val = ballStack.pop();
-        %     if val
-        %         count = count + 1;
-        %     end
-        % end
 
         for i = 1 : stackSize
             if ballStack.get(i-1)
@@ -392,15 +384,37 @@ function multiObjectTracking()
         balls = java.util.ArrayList();
 
         for i = 1 : size(eccentricities)
+
+            y1 = bboxes(i,1);
+            y2 = bboxes(i,1)+bboxes(i,3);
+
+            x1 = bboxes(i,2);
+            x2 = bboxes(i,2)+bboxes(i,4);
+
             if eccentricities(i) < 0.8
                 estimatedRadius = (majors(i) + minors(i))/2;
                 estimatedPerimeter = pi * estimatedRadius;
 
                 ratio = perimeters(i)/estimatedPerimeter;
-                balls.add(ratio <1.2);
+                if ratio < 1.2
+                    if x2 < size(mask, 1) && x2 < size(mask,2)
+                        balls.add(size(corner(mask(x1:x2, y1:y2),'QualityLevel',0.1, 'SensitivityFactor', 0.2))<5);
+                    else
+                        balls.add(true);
+                    end
+                    % balls.add(true);
+                else
+                    balls.add(false);
+                end
             else
                 balls.add(false);
             end
+
+            % if x2 < size(mask, 1) && x2 < size(mask,2)
+            %     disp(size(corner(newMask(x1:x2, y1:y2),'QualityLevel',0.1, 'SensitivityFactor', 0.2)));
+                % boxImage = newMask(x1:x2, y1:y2);
+                % figure(i); h1 = imshow(boxImage);
+            % end
         end
     end
 
