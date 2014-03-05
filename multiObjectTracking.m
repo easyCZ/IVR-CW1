@@ -1,4 +1,4 @@
-function multiObjectTracking()
+function multiObjectTracking(file_dir)
 
     % Needs to be there in order to avoid some Matlab bug.
     ones(10)*ones(10);
@@ -46,8 +46,7 @@ function multiObjectTracking()
     % Threshold on the degree of confidence with which an object is classified as a ball
     ball_probability_threshold = 0.8;
 
-    % Directory to take images from
-    file_dir = 'GOPR0004/';
+    % image file names
     filenames = dir([file_dir '*.jpg']);
 
     % Detect moving objects, and track them across video frames.
