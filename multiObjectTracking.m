@@ -20,7 +20,7 @@ function multiObjectTracking()
             'MinimumBlobArea', 200);
 
     % Global state variables
-    paused = java.util.ArrayList();
+    reached_highest = java.util.ArrayList();
 
      % Create an empty array of tracks.
     tracks = struct(...
@@ -163,8 +163,13 @@ function multiObjectTracking()
             % Draw only for positive values
             if tracks(trackIdx).max_y > 0 && tracks(trackIdx).max_y < Inf
                 text = strcat('x:', int2str(tracks(trackIdx).max_x), ' y:', int2str(tracks(trackIdx).max_y));
-                frame = insertMarker(frame, [tracks(trackIdx).max_x, tracks(trackIdx).max_y], 'Size', 15);
-                frame = insertText(frame, [tracks(trackIdx).max_x + 1, tracks(trackIdx).max_y - 23], text, 'FontSize', 13, 'BoxColor', 'red', 'BoxOpacity', 0.4);
+                disp(trackIdx);
+                disp(reached_highest);
+                if ((~reached_highest.contains(tracks(trackIdx).id)) || ...
+                    (reached_highest.contains(tracks(trackIdx).id) && tracks(trackIdx).should_pause))
+                    frame = insertMarker(frame, [tracks(trackIdx).max_x, tracks(trackIdx).max_y], 'Size', 15);
+                    frame = insertText(frame, [tracks(trackIdx).max_x + 1, tracks(trackIdx).max_y - 23], text, 'FontSize', 13, 'BoxColor', 'red', 'BoxOpacity', 0.4);
+                end
             end
 
             % Update last frame cache
@@ -180,10 +185,14 @@ function multiObjectTracking()
 
             % Determine if we should be pausing for this object
             tracks(trackIdx).should_pause = false;
-            if deltaY < 0 && ~paused.contains(trackIdx)
+            if deltaY < 0 && ~reached_highest.contains(trackIdx)
                 % Only pause if the probabilty of being a ball given the past is past the threshold
                 if getBallProbability(tracks(trackIdx).stack) > ball_probability_threshold
                     tracks(trackIdx).should_pause = true;
+                else
+                    if ~reached_highest.contains(tracks(trackIdx).id)
+                        reached_highest.add(tracks(trackIdx).id);
+                    end
                 end
             end
 
@@ -308,10 +317,14 @@ function multiObjectTracking()
                 for i = 1 : size(reliableTracks, 2)
                     ballProb = getBallProbability(reliableTracks(i).stack);
                     ballProb=round(ballProb*100)/100;
-                    if ~paused.contains(reliableTracks(i).id)
+                    if ~reached_highest.contains(reliableTracks(i).id)
                         labels(i) = cellstr(num2str(ballProb));
                     else
-                        labels(i) = cellstr('Ball');
+                        if reliableTracks(i).should_pause
+                            labels(i) = cellstr('Ball');
+                        else
+                            labels(i) = cellstr('Not a ball');
+                        end
                     end
                 end
 
@@ -330,9 +343,9 @@ function multiObjectTracking()
 %                     bboxes, labels);
 
                 for i = 1 : size(reliableTracks, 2)
-                    if reliableTracks(i).should_pause && ~paused.contains(reliableTracks(i).id)
+                    if reliableTracks(i).should_pause && ~reached_highest.contains(reliableTracks(i).id)
                         pause(3);
-                        paused.add(reliableTracks(i).id);
+                        reached_highest.add(reliableTracks(i).id);
                     end
                 end
             end
