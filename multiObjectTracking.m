@@ -42,6 +42,9 @@ function multiObjectTracking()
     % ID of the next track
     nextId = 1;
 
+    % Threshold on the degree of confidence with which an object is classified as a ball
+    ball_probability_threshold = 0.8;
+
     % Directory to take images from
     file_dir = 'GOPR0004/';
     filenames = dir([file_dir '*.jpg']);
@@ -178,7 +181,7 @@ function multiObjectTracking()
             tracks(trackIdx).should_pause = false;
             if deltaY < 0 && ~paused.contains(trackIdx)
                 % Only pause if the probabilty of being a ball given the past is past the threshold
-                if getBallProbability(tracks(trackIdx).stack) > 0.8
+                if getBallProbability(tracks(trackIdx).stack) > ball_probability_threshold
                     tracks(trackIdx).should_pause = true;
                 end
             end
@@ -332,6 +335,11 @@ function multiObjectTracking()
 
         end
 
+        % Display the threshold necessary for an object to be classified as a ball
+        frame = insertText(frame, [1, 1], strcat('Ball recognition probability threshold: ', ...
+                           num2str(ball_probability_threshold)), 'FontSize', 13, ...
+                          'BoxColor', 'yellow', 'BoxOpacity', 0.4);
+        
         % Display the mask and the frame.
         % obj.maskPlayer.step(mask);
         obj.videoPlayer.step(frame);
