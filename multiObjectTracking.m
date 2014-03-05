@@ -5,7 +5,7 @@ function multiObjectTracking()
 
     % Display video
     obj.videoPlayer = vision.VideoPlayer('Position', [20, 400, 700, 520]);
-    obj.maskPlayer = vision.VideoPlayer('Position', [740, 400, 700, 520]);
+    % obj.maskPlayer = vision.VideoPlayer('Position', [740, 400, 700, 520]);
 
     % Backgrond model and object detector
     obj.detector = vision.ForegroundDetector('NumGaussians', 2, ...
@@ -20,7 +20,7 @@ function multiObjectTracking()
             'MinimumBlobArea', 200);
 
     % Global state variables
-    paused = java.util.ArrayList();
+    reached_highest = java.util.ArrayList();
 
      % Create an empty array of tracks.
     tracks = struct(...
@@ -164,8 +164,11 @@ function multiObjectTracking()
             % Draw only for positive values
             if tracks(idx).max_y > 0 && tracks(idx).max_y < Inf
                 text = strcat('x:', int2str(tracks(idx).max_x), ' y:', int2str(tracks(idx).max_y));
-                frame = insertMarker(frame, [tracks(idx).max_x, tracks(idx).max_y], 'Size', 15);
-                frame = insertText(frame, [tracks(idx).max_x + 1, tracks(idx).max_y - 23], text, 'FontSize', 13, 'BoxColor', 'red', 'BoxOpacity', 0.4);
+                if ((~reached_highest.contains(tracks(idx).id)) || ...
+                    (reached_highest.contains(tracks(idx).id) && tracks(idx).should_pause))
+                    frame = insertMarker(frame, [tracks(idx).max_x, tracks(idx).max_y], 'Size', 15);
+                    frame = insertText(frame, [tracks(idx).max_x + 1, tracks(idx).max_y - 23], text, 'FontSize', 13, 'BoxColor', 'red', 'BoxOpacity', 0.4);
+                end
             end
 
             % Update last frame cache
@@ -181,10 +184,14 @@ function multiObjectTracking()
 
             % Determine if we should be pausing for this object
             tracks(idx).should_pause = false;
-            if deltaY < 0 && ~paused.contains(idx)
+            if deltaY < 0 && ~reached_highest.contains(idx)
                 % Only pause if the probabilty of being a ball given the past is past the threshold
                 if getBallProbability(tracks(idx).stack) > ball_probability_threshold
                     tracks(idx).should_pause = true;
+                else
+                    if ~reached_highest.contains(tracks(idx).id)
+                        reached_highest.add(tracks(idx).id);
+                    end
                 end
             end
 
@@ -309,10 +316,14 @@ function multiObjectTracking()
                 for i = 1 : size(reliableTracks, 2)
                     ballProb = getBallProbability(reliableTracks(i).stack);
                     ballProb=round(ballProb*100)/100;
-                    if ~paused.contains(reliableTracks(i).id)
+                    if ~reached_highest.contains(reliableTracks(i).id)
                         labels(i) = cellstr(num2str(ballProb));
                     else
-                        labels(i) = cellstr('Ball');
+                        if reliableTracks(i).should_pause
+                            labels(i) = cellstr('Ball');
+                        else
+                            labels(i) = cellstr('Not a ball');
+                        end
                     end
                 end
 
@@ -331,9 +342,9 @@ function multiObjectTracking()
 %                     bboxes, labels);
 
                 for i = 1 : size(reliableTracks, 2)
-                    if reliableTracks(i).should_pause && ~paused.contains(reliableTracks(i).id)
+                    if reliableTracks(i).should_pause && ~reached_highest.contains(reliableTracks(i).id)
                         pause(3);
-                        paused.add(reliableTracks(i).id);
+                        reached_highest.add(reliableTracks(i).id);
                     end
                 end
             end
@@ -347,7 +358,7 @@ function multiObjectTracking()
                           'BoxColor', 'yellow', 'BoxOpacity', 0.4);
 
         % Display the mask and the frame.
-        obj.maskPlayer.step(mask);
+        % obj.maskPlayer.step(mask);
         obj.videoPlayer.step(frame);
 
     end
