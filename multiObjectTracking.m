@@ -5,6 +5,7 @@ function multiObjectTracking()
 
     % Display video
     obj.videoPlayer = vision.VideoPlayer('Position', [20, 400, 700, 520]);
+    obj.maskPlayer = vision.VideoPlayer('Position', [740, 400, 700, 520]);
 
     % Backgrond model and object detector
     obj.detector = vision.ForegroundDetector('NumGaussians', 2, ...
@@ -56,7 +57,7 @@ function multiObjectTracking()
         frame = imread([file_dir filenames(k).name]);
 
         % Find objects on the image
-        [centroids, bboxes, mask, majora, minora, ...
+        [areas, centroids, bboxes, mask, majora, minora, ...
          eccentricities, perimeters] = detectObjects(frame);
 
         % Attempt to predict the location of objects
@@ -81,13 +82,13 @@ function multiObjectTracking()
         displayTrackingResults();
     end
 
-    function [centroids, bboxes, mask, majora, ...
+    function [areas, centroids, bboxes, mask, majora, ...
               minora, eccentricities, perimeters] = detectObjects(frame)
         % Detect foreground.
         mask = obj.detector.step(frame);
 
         % Perform blob analysis to find connected components.
-        [area, centroids, bboxes, majora, minora, ...
+        [areas, centroids, bboxes, majora, minora, ...
         eccentricities, perimeters] = obj.blobAnalyser.step(mask);
     end
 
@@ -125,7 +126,7 @@ function multiObjectTracking()
 
     function updateAssignedTracks()
         numAssignedTracks = size(assignments, 1);
-        balls = isBall(eccentricities, perimeters, bboxes, majora, minora);
+        balls = isBall(eccentricities, perimeters, bboxes, majora, minora, areas);
 
         for i = 1:numAssignedTracks
             trackIdx = assignments(i, 1);
@@ -307,7 +308,11 @@ function multiObjectTracking()
                 for i = 1 : size(reliableTracks, 2)
                     ballProb = getBallProbability(reliableTracks(i).stack);
                     ballProb=round(ballProb*100)/100;
-                    labels(i) = cellstr(num2str(ballProb));
+                    if ~paused.contains(reliableTracks(i).id)
+                        labels(i) = cellstr(num2str(ballProb));
+                    else
+                        labels(i) = cellstr('Ball');
+                    end
                 end
 
                 predictedTrackInds = ...
@@ -341,7 +346,7 @@ function multiObjectTracking()
                           'BoxColor', 'yellow', 'BoxOpacity', 0.4);
         
         % Display the mask and the frame.
-        % obj.maskPlayer.step(mask);
+        obj.maskPlayer.step(mask);
         obj.videoPlayer.step(frame);
 
     end
@@ -365,10 +370,11 @@ function multiObjectTracking()
         end
     end
 
-    function balls = isBall(eccentricities, perimeters, bboxes, majors, minors)
+    function balls = isBall(eccentricities, perimeters, bboxes, majors, minors, areas)
         balls = java.util.ArrayList();
 
         for i = 1 : size(eccentricities)
+
 
             y1 = bboxes(i,1);
             y2 = bboxes(i,1)+bboxes(i,3);
@@ -382,11 +388,18 @@ function multiObjectTracking()
 
                 ratio = perimeters(i)/estimatedPerimeter;
                 if ratio < 1.2
-                    if x2 < size(mask, 1) && x2 < size(mask,2)
-                        balls.add(size(corner(mask(x1:x2, y1:y2),'QualityLevel',0.1, 'SensitivityFactor', 0.2))<5);
-                    else
-                        balls.add(true);
-                    end
+
+                    % Corner detection: count the number of corners
+                    % if x2 < size(mask, 1) && x2 < size(mask,2)
+                    %     balls.add(size(corner(mask(x1:x2, y1:y2),'QualityLevel',0.1, 'SensitivityFactor', 0.2))<5);
+                    % else
+                    %     balls.add(true);
+                    % end
+
+                    % Compactness
+                    compactness = perimeters(i)*perimeters(i)/(4*pi*double(areas(i)));
+                    balls.add(compactness < 1.4);
+
                     % balls.add(true);
                 else
                     balls.add(false);
