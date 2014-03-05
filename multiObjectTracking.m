@@ -3,111 +3,89 @@ function multiObjectTracking()
     % Needs to be there in order to avoid some Matlab bug.
     ones(10)*ones(10);
 
-    paused = java.util.ArrayList();
-    % Create system objects used for reading video, detecting moving objects,
-    % and displaying the results.
-    obj = setupSystemObjects();
+    % Display video
+    obj.videoPlayer = vision.VideoPlayer('Position', [20, 400, 700, 520]);
 
-    tracks = initializeTracks(); % Create an empty array of tracks.
-
-    nextId = 1; % ID of the next track
-
-    file_dir = 'GOPR0008/'; %put here one of the folder locations with images;
-    filenames = dir([file_dir '*.jpg']);
-
-    frame = imread([file_dir filenames(1).name]);
-
-    % Detect moving objects, and track them across video frames.
-    for k = 1 : size (filenames, 1)
-        frame = imread([file_dir filenames(k).name]);
-        [centroids, bboxes, mask, majora, minora, eccentricities, perimeters] = detectObjects(frame);
-
-
-        predictNewLocationsOfTracks();
-        [assignments, unassignedTracks, unassignedDetections] = ...
-            detectionToTrackAssignment();
-
-        updateAssignedTracks();
-        updateUnassignedTracks();
-        deleteLostTracks();
-        createNewTracks();
-
-        displayTrackingResults();
-    end
-
-    function obj = setupSystemObjects()
-        % Initialize Video I/O
-        % Create objects for reading a video from a file, drawing the tracked
-        % objects in each frame, and playing the video.
-
-        % Create two video players, one to display the video,
-        % and one to display the foreground mask.
-        obj.videoPlayer = vision.VideoPlayer('Position', [20, 400, 700, 520]);
-        % obj.maskPlayer = vision.VideoPlayer('Position', [740, 400, 700, 520]);
-
-        % Create system objects for foreground detection and blob analysis
-
-        % The foreground detector is used to segment moving objects from
-        % the background. It outputs a binary mask, where the pixel value
-        % of 1 corresponds to the foreground and the value of 0 corresponds
-        % to the background.
-
-        obj.detector = vision.ForegroundDetector('NumGaussians', 2, ...
+    % Backgrond model and object detector
+    obj.detector = vision.ForegroundDetector('NumGaussians', 2, ...
             'NumTrainingFrames', 25, 'MinimumBackgroundRatio', 0.8, ...
             'InitialVariance', 25*25, 'AdaptLearningRate', true, 'LearningRate', 0.0001);
 
-        % Connected groups of foreground pixels are likely to correspond to moving
-        % objects.  The blob analysis system object is used to find such groups
-        % (called 'blobs' or 'connected components'), and compute their
-        % characteristics, such as area, centroid, and the bounding box.
-
-        obj.blobAnalyser = vision.BlobAnalysis('BoundingBoxOutputPort', true, ...
+    % Blob analysis and recognition
+    obj.blobAnalyser = vision.BlobAnalysis('BoundingBoxOutputPort', true, ...
             'AreaOutputPort', true, 'CentroidOutputPort', true, ...
             'MajorAxisLengthOutputPort', true, 'MinorAxisLengthOutputPort', true, ...
             'EccentricityOutputPort', true, 'PerimeterOutputPort', true, ...
             'MinimumBlobArea', 200);
 
+    % Global state variables
+    paused = java.util.ArrayList();
 
+     % Create an empty array of tracks.
+    tracks = struct(...
+        'id', {}, ...
+        'bbox', {}, ...
+        'kalmanFilter', {}, ...
+        'age', {}, ...
+        'totalVisibleCount', {}, ...
+        'consecutiveInvisibleCount', {}, ...
+        'stack', {}, ...        % ball / not ball classifications to get probability
+        'max_x', {}, ...        % max point so far
+        'max_y', {}, ...        % max point so far
+        'last_x', {}, ...       % the last seen value
+        'last_y', {}, ...       % the last seen value
+        'should_pause', {}, ... % should we pause this object when it's highest?
+        'stop_pausing', {}, ... % Have we paused yet?
+        'track_xs', {}, ...     % past points for drawing the track
+        'track_ys', {});        % past points for drawing the track
 
+    % ID of the next track
+    nextId = 1;
+
+    % Directory to take images from
+    file_dir = 'GOPR0004/';
+    filenames = dir([file_dir '*.jpg']);
+
+    % Detect moving objects, and track them across video frames.
+    % Main loop of the program
+    for k = 1 : size (filenames, 1)
+        % Load an image
+        frame = imread([file_dir filenames(k).name]);
+
+        % Find objects on the image
+        [centroids, bboxes, mask, majora, minora, ...
+         eccentricities, perimeters] = detectObjects(frame);
+
+        % Attempt to predict the location of objects
+        predictNewLocationsOfTracks();
+
+        % Match detected objects to existing objects
+        [assignments, unassignedTracks, unassignedDetections] = detectionToTrackAssignment();
+
+        % Update informations for each track - maximums and ball/not ball classification
+        updateAssignedTracks();
+
+        % Increment age of unassigned tracks to be considered for deletion later
+        updateUnassignedTracks();
+
+        % Delete the tracks that are too old or not visible
+        deleteLostTracks();
+
+        % Create new objects from unassigned tracks
+        createNewTracks();
+
+        % Draw GUI
+        displayTrackingResults();
     end
 
-    function tracks = initializeTracks()
-        % create an empty array of tracks
-        tracks = struct(...
-            'id', {}, ...
-            'bbox', {}, ...
-            'kalmanFilter', {}, ...
-            'age', {}, ...
-            'totalVisibleCount', {}, ...
-            'consecutiveInvisibleCount', {}, ...
-            'stack', {}, ...
-            'max_x', {}, ...
-            'max_y', {}, ...
-            'last_x', {}, ...
-            'last_y', {}, ...
-            'should_pause', {}, ...
-            'stop_pausing', {}, ...
-            'track_xs', {}, ...
-            'track_ys', {});
-    end
-
-    function [centroids, bboxes, mask, majora, minora, eccentricities, perimeters] = detectObjects(frame)
-
+    function [centroids, bboxes, mask, majora, ...
+              minora, eccentricities, perimeters] = detectObjects(frame)
         % Detect foreground.
         mask = obj.detector.step(frame);
 
-        % Apply morphological operations to remove noise and fill in holes.
-
-        % mask = imopen(mask, strel('rectangle', [3,3]));
-        % mask = imclose(mask, strel('rectangle', [15, 15]));
-
-        % mask = imopen(mask, strel('octagon', 3));
-        % mask = imclose(mask, strel('octagon', 9));
-
-        % mask = imfill(mask, 'holes');
-
         % Perform blob analysis to find connected components.
-        [area, centroids, bboxes, majora, minora, eccentricities, perimeters] = obj.blobAnalyser.step(mask);
+        [area, centroids, bboxes, majora, minora, ...
+        eccentricities, perimeters] = obj.blobAnalyser.step(mask);
     end
 
     function predictNewLocationsOfTracks()
@@ -124,8 +102,8 @@ function multiObjectTracking()
         end
     end
 
-    function [assignments, unassignedTracks, unassignedDetections] = ...
-            detectionToTrackAssignment()
+    function [assignments, unassignedTracks, ...
+              unassignedDetections] = detectionToTrackAssignment()
 
         nTracks = length(tracks);
         nDetections = size(centroids, 1);
@@ -189,9 +167,6 @@ function multiObjectTracking()
             tracks(trackIdx).last_x = x;
             tracks(trackIdx).last_y = y;
 
-            % tracks(trackIdx).max_x = tracks(trackIdx).max_x;
-            % tracks(trackIdx).max_y = tracks(trackIdx).max_y;
-
             % Update visibility.
             tracks(trackIdx).totalVisibleCount = ...
                 tracks(trackIdx).totalVisibleCount + 1;
@@ -199,28 +174,30 @@ function multiObjectTracking()
 
             tracks(trackIdx).stack.add(balls.get(i - 1));
 
+            % Determine if we should be pausing for this object
             tracks(trackIdx).should_pause = false;
             if deltaY < 0 && ~paused.contains(trackIdx)
+                % Only pause if the probabilty of being a ball given the past is past the threshold
                 if getBallProbability(tracks(trackIdx).stack) > 0.8
-                tracks(trackIdx).should_pause = true;
+                    tracks(trackIdx).should_pause = true;
                 end
             end
+
+            % Add current location to the history of location
             tracks(trackIdx).track_xs.add(x);
             tracks(trackIdx).track_ys.add(y);
 
+            % Check how many track points there are in the object
             numTracks = tracks(trackIdx).track_ys.size();
-
             points = zeros(numTracks, 2);
 
+            % Precompute a [numTracks x 2] matrix to draw markers
             for i = 1 : tracks(trackIdx).track_ys.size()
-
                 points(i, 1) = tracks(trackIdx).track_xs.get(i-1);
                 points(i, 2) = tracks(trackIdx).track_ys.get(i-1);
-
-                % marker_x = tracks(trackIdx).track_xs.get(i);
-                % marker_y = tracks(trackIdx).track_ys.get(i);
-                % frame = insertMarker(frame, [marker_x, marker_y], 'o', 'Size', 1);
             end
+
+            % Draw points
             frame = insertMarker(frame, points, 'o', 'Size', 1);
         end
     end
