@@ -43,7 +43,7 @@ function multiObjectTracking()
         % Create two video players, one to display the video,
         % and one to display the foreground mask.
         obj.videoPlayer = vision.VideoPlayer('Position', [20, 400, 700, 520]);
-%         obj.maskPlayer = vision.VideoPlayer('Position', [740, 400, 700, 520]);
+        obj.maskPlayer = vision.VideoPlayer('Position', [740, 400, 700, 520]);
 
         % Create system objects for foreground detection and blob analysis
 
@@ -197,7 +197,7 @@ function multiObjectTracking()
                 tracks(trackIdx).totalVisibleCount + 1;
             tracks(trackIdx).consecutiveInvisibleCount = 0;
 
-            tracks(trackIdx).stack.push(balls.get(i - 1));
+            tracks(trackIdx).stack.add(balls.get(i - 1));
 
             tracks(trackIdx).should_pause = false;
             if deltaY < 0 && ~paused.contains(trackIdx)
@@ -222,7 +222,6 @@ function multiObjectTracking()
                 % frame = insertMarker(frame, [marker_x, marker_y], 'o', 'Size', 1);
             end
             frame = insertMarker(frame, points, 'o', 'Size', 1);
-            % disp(points);
         end
     end
 
@@ -277,7 +276,7 @@ function multiObjectTracking()
                 'age', 1, ...
                 'totalVisibleCount', 1, ...
                 'consecutiveInvisibleCount', 0, ...
-                'stack', java.util.Stack(), ...
+                'stack', java.util.ArrayList(), ...
                 'max_x', -1, ...
                 'max_y', Inf, ...
                 'last_x', -1, ...
@@ -324,6 +323,13 @@ function multiObjectTracking()
                 % which we display the predicted rather than the actual
                 % location.
                 labels = cellstr(int2str(ids'));
+                % labels = cellstr(int2str(arrayfun(@(x) getBallProbability(x), reliableTracks(:).stack)))
+                for i = 1 : size(reliableTracks, 2)
+                    ballProb = getBallProbability(reliableTracks(i).stack);
+                    ballProb=round(ballProb*100)/100;
+                    labels(i) = cellstr(num2str(ballProb));
+                end
+
                 predictedTrackInds = ...
                     [reliableTracks(:).consecutiveInvisibleCount] > 0;
                 isPredicted = cell(size(labels));
@@ -350,7 +356,7 @@ function multiObjectTracking()
         end
 
         % Display the mask and the frame.
-%         obj.maskPlayer.step(mask);
+        obj.maskPlayer.step(mask);
         obj.videoPlayer.step(frame);
 
     end
@@ -362,9 +368,15 @@ function multiObjectTracking()
 
         count = 0;
 
-        while ~ballStack.isEmpty()
-            val = ballStack.pop();
-            if val
+        % while ~ballStack.isEmpty()
+        %     val = ballStack.pop();
+        %     if val
+        %         count = count + 1;
+        %     end
+        % end
+
+        for i = 1 : stackSize
+            if ballStack.get(i-1)
                 count = count + 1;
             end
         end
