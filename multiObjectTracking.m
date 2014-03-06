@@ -377,7 +377,7 @@ function multiObjectTracking(file_dir)
             end
         end
 
-        % Calculate probability as ratio
+        % Calculate probability as a ratio
         prob = count / len;
 
         % Only consider objects that have at least 8 values
