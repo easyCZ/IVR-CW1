@@ -364,21 +364,24 @@ function multiObjectTracking(file_dir)
 
     end
 
-    function prob = getBallProbability(ballStack)
-        % Calculate the probability that the image has balls. Yay!
-        stackSize = ballStack.size();
-
+    function prob = getBallProbability(stack)
+        % Given a list of boolean values, calculate the ratio of true to false
+        % The ratio is the probability an object is classified as a ball
+        len = stack.size();
         count = 0;
 
-        for i = 1 : stackSize
-            if ballStack.get(i-1)
+        % Iterate over the values and count
+        for i = 1 : len
+            if stack.get(i-1)
                 count = count + 1;
             end
         end
 
-        prob = count / stackSize;
+        % Calculate probability as ratio
+        prob = count / len;
 
-        if stackSize < 8
+        % Only consider objects that have at least 8 values
+        if len < 8
             prob = 0;
         end
     end
