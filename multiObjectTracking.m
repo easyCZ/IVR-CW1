@@ -415,7 +415,7 @@ function multiObjectTracking(file_dir)
 
                     % Compactness
                     compactness = perimeters(i)*perimeters(i)/(4*pi*double(areas(i)));
-                    balls.add(compactness < 1.4);
+                    balls.add(compactness < 1.8);
 
                     % balls.add(true);
                 else
