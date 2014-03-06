@@ -162,6 +162,11 @@ function multiObjectTracking(file_dir)
                 tracks(idx).max_x = x;
                 tracks(idx).max_y = y;
             end
+
+            % Update x and y to be the centerpoints
+            x = bbox(1) + floor(bbox(3) / 2);
+            y = bbox(2) + floor(bbox(4) / 2);
+
             % Draw only for positive values
             if tracks(idx).max_y > 0 && tracks(idx).max_y < Inf
                 text = strcat('x:', int2str(tracks(idx).max_x), ' y:', int2str(tracks(idx).max_y));
