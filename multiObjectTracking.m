@@ -163,10 +163,6 @@ function multiObjectTracking(file_dir)
                 tracks(idx).max_y = y;
             end
 
-            % Update x and y to be the centerpoints
-            x = bbox(1) + floor(bbox(3) / 2);
-            y = bbox(2) + floor(bbox(4) / 2);
-
             % Draw only for positive values
             if tracks(idx).max_y > 0 && tracks(idx).max_y < Inf
                 text = strcat('x:', int2str(tracks(idx).max_x), ' y:', int2str(tracks(idx).max_y));
@@ -202,8 +198,8 @@ function multiObjectTracking(file_dir)
             end
 
             % Add current location to the history of location
-            tracks(idx).track_xs.add(x);
-            tracks(idx).track_ys.add(y);
+            tracks(idx).track_xs.add(bbox(1) + floor(bbox(3) / 2));
+            tracks(idx).track_ys.add(bbox(2) + floor(bbox(4) / 2));
 
             % Check how many track points there are in the object
             numTracks = tracks(idx).track_ys.size();
