@@ -314,7 +314,6 @@ function multiObjectTracking(file_dir)
                 % which we display the predicted rather than the actual
                 % location.
                 labels = cellstr(int2str(ids'));
-                % labels = cellstr(int2str(arrayfun(@(x) getBallProbability(x), reliableTracks(:).stack)))
                 for i = 1 : size(reliableTracks, 2)
                     ballProb = getBallProbability(reliableTracks(i).stack);
                     ballProb=round(ballProb*100)/100;
@@ -339,10 +338,6 @@ function multiObjectTracking(file_dir)
                 frame = insertObjectAnnotation(frame, 'rectangle', ...
                     bboxes, labels);
 
-                % Draw the objects on the mask.
-%                 mask = insertObjectAnnotation(mask, 'rectangle', ...
-%                     bboxes, labels);
-
                 for i = 1 : size(reliableTracks, 2)
                     if reliableTracks(i).should_pause && ~reached_highest.contains(reliableTracks(i).id)
                         pause(3);
@@ -354,11 +349,6 @@ function multiObjectTracking(file_dir)
 
         end
 
-        % Display the threshold necessary for an object to be classified as a ball
-        frame = insertText(frame, [1, 1], strcat('Ball recognition probability threshold: ', ...
-                           num2str(ball_probability_threshold)), 'FontSize', 13, ...
-                          'BoxColor', 'yellow', 'BoxOpacity', 0.4);
-
         % Display the mask and the frame.
         % obj.maskPlayer.step(mask);
         obj.videoPlayer.step(frame);
@@ -366,8 +356,9 @@ function multiObjectTracking(file_dir)
     end
 
     function prob = getBallProbability(stack)
-        % Given a list of boolean values, calculate the ratio of true to false
-        % The ratio is the probability an object is classified as a ball
+        % Given a list of boolean values, calculate the ratio of true to total
+        % The ratio is the confidence with which an object is classified as a ball
+        %  at a particular moment in time.
         len = stack.size();
         count = 0;
 
@@ -388,48 +379,27 @@ function multiObjectTracking(file_dir)
     end
 
     function balls = isBall(eccentricities, perimeters, bboxes, majors, minors, areas)
+        % Determines whether a blob is spherical, based on properties output by BlobAnalysis
+        % Uses eccentricity of second moment ellipses, estimated parameter of the fitting
+        %  ellipse and compactness of the blob.
         balls = java.util.ArrayList();
 
         for i = 1 : size(eccentricities)
-
-
-            y1 = bboxes(i,1);
-            y2 = bboxes(i,1)+bboxes(i,3);
-
-            x1 = bboxes(i,2);
-            x2 = bboxes(i,2)+bboxes(i,4);
-
             if eccentricities(i) < 0.8
                 estimatedRadius = (majors(i) + minors(i))/2;
                 estimatedPerimeter = pi * estimatedRadius;
 
                 ratio = perimeters(i)/estimatedPerimeter;
                 if ratio < 1.2
-
-                    % Corner detection: count the number of corners
-                    % if x2 < size(mask, 1) && x2 < size(mask,2)
-                    %     balls.add(size(corner(mask(x1:x2, y1:y2),'QualityLevel',0.1, 'SensitivityFactor', 0.2))<5);
-                    % else
-                    %     balls.add(true);
-                    % end
-
                     % Compactness
                     compactness = perimeters(i)*perimeters(i)/(4*pi*double(areas(i)));
                     balls.add(compactness < 1.8);
-
-                    % balls.add(true);
                 else
                     balls.add(false);
                 end
             else
                 balls.add(false);
             end
-
-            % if x2 < size(mask, 1) && x2 < size(mask,2)
-            %     disp(size(corner(newMask(x1:x2, y1:y2),'QualityLevel',0.1, 'SensitivityFactor', 0.2)));
-                % boxImage = newMask(x1:x2, y1:y2);
-                % figure(i); h1 = imshow(boxImage);
-            % end
         end
     end
 
