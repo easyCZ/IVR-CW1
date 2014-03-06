@@ -149,6 +149,8 @@ function multiObjectTracking(file_dir)
             x = bbox(1) + floor(bbox(3) / 2);
             y = bbox(2);
 
+            % Calculate delta - the change in y coordinates
+            % If checks are to exclude newly initialized objects.
             if tracks(idx).last_y ~= Inf && tracks(idx).last_y ~= -1
                 deltaY = tracks(idx).last_y - y;
             else
