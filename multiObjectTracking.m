@@ -393,7 +393,8 @@ function multiObjectTracking(file_dir)
                 if ratio < 1.2
                     % Compactness
                     compactness = perimeters(i)*perimeters(i)/(4*pi*double(areas(i)));
-                    balls.add(compactness < 1.8);
+%                     disp(compactness);
+                    balls.add(compactness < 1.5);
                 else
                     balls.add(false);
                 end
