@@ -32,7 +32,7 @@ The main idea of the task is to detect moving objects in a video sequence. Objec
 \subsection{Main ideas}
 
 \paragraph{Background Model}
-In order to create a background model for the video sequence, a Gaussian Mixture based Foreground Detector (FD) is used. It creates a background model of the image sequence by considering three Gaussian models where one models the moving objects that later appear in the sequence. The other two are used to model the background, one is used to model dark sections of the video while the other is used to model the bright sections of it \cite{ES1}.
+In order to create a background model for the video sequence, a Gaussian Mixture based Foreground Detector (FD) is used. It creates a background model of the image sequence by considering two Gaussian models where one models the moving objects that later appear in the sequence. The other one is used to model the background \cite{ES1}.
 The technique considers each pixel separately and calculates the probability it belongs into one of the three Gaussians. The highest probability Gaussian is then assigned to that that pixel. The overall result obtained is assignment to three different classes where the object class represents the object in the video. 
 
 \paragraph{Blob Analysis}
@@ -412,8 +412,6 @@ Correctly classified with probability 0.9-1 & 4/6 & 4/4 & 5/6 & 6/8 \\
 Correctly classified with probability 0.8-0.89 & 1/6 & 0/4 & 1/6 & 0/8 \\
 \hline 
 \end{tabular}}
-
-\paragraph{}
 
 \begin{multicols}{2}
 \section{Discussion}
